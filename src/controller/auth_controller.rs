@@ -3,7 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use poem_openapi::{
-    OpenApi, Tags,
+    OpenApi,
     payload::{Json, PlainText},
 };
 
@@ -13,17 +13,12 @@ use crate::{
         register_user_request_dto::RegisterUserRequestDto,
         register_user_response_dto::{RegisterUserResponseDto, RegisterUserResponseType},
     },
-    types::base_response::ErrorResponse,
+    types::{api_tags::ApiTags, base_response::ErrorResponse},
 };
 
 pub struct AuthController;
 
-#[derive(Tags)]
-enum tag {
-    AuthController,
-}
-
-#[OpenApi(tag = "tag::AuthController")]
+#[OpenApi(tag = "ApiTags::AuthController")]
 impl AuthController {
     /// Hello World!
     #[oai(path = "/public/hello", method = "get")]

@@ -2,7 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-pub mod api_tags;
-pub mod app_state;
-pub mod base_response;
-pub mod db_pool;
+use poem_openapi::Tags;
+
+#[derive(Tags)]
+pub enum ApiTags {
+    #[oai(rename = "Auth Controller")]
+    AuthController,
+}

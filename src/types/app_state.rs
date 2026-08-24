@@ -5,6 +5,7 @@
 use crate::types::db_pool::DBPool;
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct AppState {
     pub db: DBPool,
 }

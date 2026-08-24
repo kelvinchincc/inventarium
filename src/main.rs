@@ -8,14 +8,15 @@ use poem_openapi::OpenApiService;
 
 use crate::controller::auth_controller;
 
+mod auth;
 mod controller;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     init_log();
 
-    let api_service = OpenApiService::new(auth_controller::AuthController, "Inventarium", "1.0.0")
-        .server("http://localhost:3000/api");
+    let api_service =
+        OpenApiService::new(auth_controller::AuthController, "Inventarium", "1.0.0").server("/api");
     let ui = api_service.swagger_ui();
     let app = poem::Route::new()
         .nest("/docs", ui)

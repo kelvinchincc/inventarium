@@ -5,13 +5,22 @@
  **********************************************************************************************************************/
 use poem_openapi::{OpenApi, payload::PlainText};
 
+use crate::auth::jwt_auth::JWTAuth;
+
 pub struct AuthController;
 
 #[OpenApi]
 impl AuthController {
     /// Hello World!
-    #[oai(path = "/hello", method = "get")]
+    #[oai(path = "/public/hello", method = "get")]
     pub async fn hello(&self) -> PlainText<&'static str> {
         PlainText("Hello, World!")
+    }
+
+    /// This is protected endpoint
+    #[oai(path = "/secured/hello", method = "get")]
+    pub async fn protected_hello(&self, auth: JWTAuth) -> PlainText<String> {
+        let token = auth.0.token;
+        PlainText(format!("Hello, Protected World! Your token is: {}", token))
     }
 }

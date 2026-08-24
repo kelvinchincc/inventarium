@@ -2,6 +2,5 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-pub mod app_state;
-pub mod base_response;
-pub mod db_pool;
+pub mod register_user_request_dto;
+pub mod register_user_response_dto;

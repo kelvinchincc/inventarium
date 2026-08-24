@@ -15,6 +15,7 @@ use crate::{
 
 mod auth;
 mod controller;
+mod dto;
 mod repo;
 mod types;
 

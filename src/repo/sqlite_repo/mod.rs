@@ -3,3 +3,13 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 pub mod user_repo;
+
+pub mod error {
+    use thiserror::Error;
+
+    #[derive(Error, Debug)]
+    pub enum SQLiteRepoError {
+        #[error("User already exists")]
+        UserExists,
+    }
+}

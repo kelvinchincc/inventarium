@@ -13,10 +13,12 @@ use crate::{
     types::{app_state::AppState, db_pool::DBPool},
 };
 
-mod auth;
 mod controller;
 mod dto;
+mod entity;
+mod gurard;
 mod repo;
+mod service;
 mod types;
 
 #[tokio::main]

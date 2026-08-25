@@ -2,18 +2,20 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+use poem::web::Data;
 use poem_openapi::{
     OpenApi,
     payload::{Json, PlainText},
 };
 
 use crate::{
-    auth::jwt_auth::JWTAuth,
     dto::{
         register_user_request_dto::RegisterUserRequestDto,
-        register_user_response_dto::{RegisterUserResponseDto, RegisterUserResponseType},
+        register_user_response_dto::RegisterUserResponseType,
     },
-    types::{api_tags::ApiTags, base_response::ErrorResponse},
+    gurard::jwt_auth::JWTAuth,
+    service::auth_service::{self, error::AuthServiceError},
+    types::{api_tags::ApiTags, app_state::AppState},
 };
 
 pub struct AuthController;
@@ -30,16 +32,38 @@ impl AuthController {
     #[oai(path = "/public/register", method = "post")]
     pub async fn register_user(
         &self,
+        data: Data<&AppState>,
         body: Json<RegisterUserRequestDto>,
     ) -> RegisterUserResponseType {
         if body.password != body.confirm_password {
-            return RegisterUserResponseType::BadRequest(Json(ErrorResponse::from(
-                "Password and confirm password do not match",
-            )));
+            return RegisterUserResponseType::bad_request(Some(
+                "Password and confirm password do not match".into(),
+            ));
         }
 
-        let user = RegisterUserResponseDto::new(body.username.clone());
-        RegisterUserResponseType::Ok(Json(user.into()))
+        if body.password.len() < 8 {
+            return RegisterUserResponseType::bad_request(Some(
+                "Password must be at least 8 characters long".into(),
+            ));
+        }
+
+        let user = auth_service::create_user(&data.db, &body).await;
+        if let Err(e) = user {
+            return match e.downcast_ref::<AuthServiceError>() {
+                Some(AuthServiceError::UserAlreadyExists(username)) => {
+                    RegisterUserResponseType::conflict(Some(format!(
+                        "User with username '{}' already exists",
+                        username
+                    )))
+                }
+                _ => {
+                    log::error!("Error creating user: {}", e);
+                    RegisterUserResponseType::internal_server_err(None)
+                }
+            };
+        }
+
+        RegisterUserResponseType::ok(user.unwrap().username)
     }
 
     /// This is protected endpoint

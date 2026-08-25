@@ -3,3 +3,4 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 pub mod base_repo;
+pub mod sqlite_repo;

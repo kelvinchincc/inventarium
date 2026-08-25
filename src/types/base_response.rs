@@ -28,10 +28,8 @@ pub struct ErrorResponse {
     pub message: String,
 }
 
-impl From<&str> for ErrorResponse {
-    fn from(message: &str) -> Self {
-        Self {
-            message: message.to_string(),
-        }
+impl From<String> for ErrorResponse {
+    fn from(message: String) -> Self {
+        Self { message: message }
     }
 }

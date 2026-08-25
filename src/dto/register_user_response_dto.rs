@@ -28,4 +28,32 @@ pub enum RegisterUserResponseType {
     Ok(Json<BaseResponse<RegisterUserResponseDto>>),
     #[oai(status = 400)]
     BadRequest(Json<ErrorResponse>),
+    #[oai(status = 409)]
+    Conflict(Json<ErrorResponse>),
+    #[oai(status = 500)]
+    InternalServerError(Json<ErrorResponse>),
+}
+
+impl RegisterUserResponseType {
+    pub fn ok(username: String) -> Self {
+        Self::Ok(Json(BaseResponse::from(RegisterUserResponseDto {
+            username,
+            success: true,
+        })))
+    }
+
+    pub fn bad_request(msg: Option<String>) -> Self {
+        let msg = msg.unwrap_or_else(|| "Bad request".to_string());
+        Self::BadRequest(Json(ErrorResponse::from(msg)))
+    }
+
+    pub fn conflict(msg: Option<String>) -> Self {
+        let msg = msg.unwrap_or_else(|| "Conflict".to_string());
+        Self::Conflict(Json(ErrorResponse::from(msg)))
+    }
+
+    pub fn internal_server_err(msg: Option<String>) -> Self {
+        let msg = msg.unwrap_or_else(|| "Internal server error".to_string());
+        Self::InternalServerError(Json(ErrorResponse::from(msg)))
+    }
 }

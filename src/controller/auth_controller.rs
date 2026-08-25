@@ -10,6 +10,7 @@ use poem_openapi::{
 
 use crate::{
     dto::{
+        login_request_dto::LoginRequestDto, login_response_dto::LoginResponseType,
         register_user_request_dto::RegisterUserRequestDto,
         register_user_response_dto::RegisterUserResponseType,
     },
@@ -64,6 +65,31 @@ impl AuthController {
         }
 
         RegisterUserResponseType::ok(user.unwrap().username)
+    }
+
+    #[oai(path = "/public/login", method = "post")]
+    pub async fn login_user(
+        &self,
+        app_state: Data<&AppState>,
+        body: Json<LoginRequestDto>,
+    ) -> LoginResponseType {
+        let result = auth_service::login(&app_state.db, &body.0).await;
+
+        if let Err(e) = result {
+            match e.downcast_ref::<AuthServiceError>() {
+                Some(AuthServiceError::BadCredentials) => {
+                    return LoginResponseType::unauthorized(Some(
+                        "Invalid username or password".into(),
+                    ));
+                }
+                _ => {
+                    log::error!("Error logging in user: {}", e);
+                    return LoginResponseType::internal_server_error(None);
+                }
+            }
+        }
+
+        LoginResponseType::ok(result.unwrap())
     }
 
     /// This is protected endpoint

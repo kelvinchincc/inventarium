@@ -6,10 +6,7 @@ use poem_openapi::Object;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Object)]
-pub struct RegisterUserRequestDto {
+pub struct LoginRequestDto {
     pub username: String,
-    pub email: String,
     pub password: String,
-    #[serde(rename = "confirmPassword")]
-    pub confirm_password: String,
 }

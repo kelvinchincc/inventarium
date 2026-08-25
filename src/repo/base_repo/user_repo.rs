@@ -19,3 +19,12 @@ pub async fn create_user<'a>(pool: &DBPool, user: &'a User) -> Result<Cow<'a, Us
         }
     }
 }
+
+pub async fn get_user_by_username<'a>(pool: &DBPool, username: &str) -> Result<Option<User>> {
+    match pool {
+        SQLITE(pool) => {
+            let result = sqlite_repo::user_repo::get_user_by_username(pool, username).await?;
+            return Ok(result);
+        }
+    }
+}

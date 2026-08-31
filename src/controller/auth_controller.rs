@@ -33,6 +33,7 @@ impl AuthController {
     #[oai(path = "/public/register", method = "post")]
     pub async fn register_user(
         &self,
+        _auth: JWTAuth,
         data: Data<&AppState>,
         body: Json<RegisterUserRequestDto>,
     ) -> RegisterUserResponseType {

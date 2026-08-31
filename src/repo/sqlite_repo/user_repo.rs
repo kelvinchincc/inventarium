@@ -63,3 +63,11 @@ pub async fn get_user_by_username(
 
     Ok(user)
 }
+
+pub async fn get_user_count(pool: &sqlite::SqlitePool) -> Result<i64> {
+    let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users")
+        .fetch_one(pool)
+        .await?;
+
+    Ok(count.0)
+}

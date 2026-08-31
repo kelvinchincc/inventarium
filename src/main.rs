@@ -10,6 +10,7 @@ use poem_openapi::OpenApiService;
 
 use crate::{
     controller::auth_controller,
+    service::auth_service,
     types::{app_state::AppState, db_pool::DBPool},
 };
 
@@ -27,6 +28,7 @@ async fn main() -> Result<()> {
 
     log::info!("Initializing configs...");
     let app_state = AppState::new(setup_db().await?);
+    auth_service::insert_new_admin_user_if_empty(&app_state.db).await?;
 
     let api_service =
         OpenApiService::new(auth_controller::AuthController, "Inventarium", "1.0.0").server("/api");

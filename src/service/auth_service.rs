@@ -73,7 +73,7 @@ pub async fn login(db: &DBPool, login_dto: &LoginRequestDto) -> Result<LoginResp
             let auth_token_exp = Utc::now() + chrono::Duration::hours(1);
             let refresh_token_exp = Utc::now() + chrono::Duration::days(14);
             let tokens = generate_jwt_token(
-                user.username,
+                user.username.clone(),
                 auth_token_exp,
                 refresh_token_exp,
                 user.id.clone(),
@@ -81,6 +81,7 @@ pub async fn login(db: &DBPool, login_dto: &LoginRequestDto) -> Result<LoginResp
             let mut response = LoginResponseDto::default();
             response.token = tokens.auth;
             response.refresh_token = tokens.refresh;
+            response.username = user.username;
             Ok(response)
         }
         Err(_) => Err(AuthServiceError::BadCredentials.into()),
@@ -157,6 +158,30 @@ pub fn generate_jwt_token(
         refresh: encode(&Header::default(), &ref_payload, &ref_key)?,
     };
     Ok(jwt_tokens)
+}
+
+/// Inserts a new admin user into the database if no users currently exist.
+pub async fn insert_new_admin_user_if_empty(db_pool: &DBPool) -> Result<()> {
+    let user_count = user_repo::get_user_count(db_pool).await?;
+    if user_count > 0 {
+        return Ok(());
+    }
+
+    // No users exist, create a new admin user
+    log::info!("No users found in the database. Creating a new admin user.");
+    let password = "P@$$w0rd".to_string(); // Temp password, must be changed after first login.
+    let default_user = RegisterUserRequestDto {
+        username: "admin".to_string(),
+        email: "admin@admin.com".to_string(),
+        password: password.clone(),
+        confirm_password: password,
+    };
+    create_user(db_pool, &default_user).await?;
+    log::info!(
+        "Admin user created with username: 'admin' and password: 'P@$$w0rd'. Please change the password"
+    );
+
+    Ok(())
 }
 
 pub mod error {

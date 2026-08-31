@@ -28,3 +28,12 @@ pub async fn get_user_by_username<'a>(pool: &DBPool, username: &str) -> Result<O
         }
     }
 }
+
+pub async fn get_user_count(pool: &DBPool) -> Result<i64> {
+    match pool {
+        SQLITE(pool) => {
+            let result = sqlite_repo::user_repo::get_user_count(pool).await?;
+            return Ok(result);
+        }
+    }
+}

@@ -5,7 +5,7 @@
 use crate::dto::login_request_dto::LoginRequestDto;
 use crate::dto::login_response_dto::LoginResponseDto;
 use crate::service::auth_service::error::AuthServiceError;
-use crate::types::jwt_payload::{JWTPayload, JWTTokenPair};
+use crate::types::jwt_payload::{JWTPayload, JWTTokenPair, JWTTokenType};
 use crate::{
     dto::register_user_request_dto::RegisterUserRequestDto,
     entity::user::User,
@@ -17,6 +17,9 @@ use argon2::password_hash::SaltString;
 use argon2::password_hash::rand_core::OsRng;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use chrono::{DateTime, Utc};
+
+const JWT_SECRET: &[u8] = b"hello";
+const JWT_REFRESH_SECRET: &[u8] = b"secret";
 
 /// Creates a new user in the database.
 ///
@@ -155,8 +158,8 @@ pub fn generate_jwt_token(
     seed: String,
 ) -> Result<JWTTokenPair> {
     use jsonwebtoken::*;
-    let key = EncodingKey::from_secret(b"hello");
-    let ref_key = EncodingKey::from_secret(b"secret");
+    let key = EncodingKey::from_secret(JWT_SECRET);
+    let ref_key = EncodingKey::from_secret(JWT_REFRESH_SECRET);
     let payload = JWTPayload::new(username.clone(), exp, seed.clone());
     let ref_payload = JWTPayload::new(username, ref_exp, seed);
     let jwt_tokens = JWTTokenPair {
@@ -164,6 +167,47 @@ pub fn generate_jwt_token(
         refresh: encode(&Header::default(), &ref_payload, &ref_key)?,
     };
     Ok(jwt_tokens)
+}
+
+pub async fn decode_jwt_token(
+    token: &str,
+    token_type: JWTTokenType,
+    db_pool: &DBPool,
+) -> Result<JWTPayload> {
+    use jsonwebtoken::*;
+    let secret = match token_type {
+        JWTTokenType::Auth => JWT_SECRET,
+        JWTTokenType::Refresh => JWT_REFRESH_SECRET,
+    };
+    let key = DecodingKey::from_secret(secret);
+    let validation = Validation::default();
+    let token_data = decode::<JWTPayload>(token, &key, &validation)?;
+
+    let now = Utc::now().timestamp();
+    let exp = token_data.claims.exp;
+
+    if exp < now {
+        return Err(AuthServiceError::ExpiredToken.into());
+    }
+
+    let user = user_repo::get_user_by_username(db_pool, &token_data.claims.username)
+        .await
+        .map_err(|e| {
+            log::error!("Failed to get user by username: {}", e);
+            AuthServiceError::InvalidToken
+        })
+        .and_then(|u| u.ok_or(AuthServiceError::InvalidToken))?;
+
+    let current_user_seed = match token_type {
+        JWTTokenType::Auth => user.token_seed.as_str(),
+        JWTTokenType::Refresh => user.ref_token_seed.as_str(),
+    };
+
+    if token_data.claims.seed != current_user_seed {
+        return Err(AuthServiceError::InvalidToken.into());
+    }
+
+    Ok(token_data.claims)
 }
 
 /// Inserts a new admin user into the database if no users currently exist.
@@ -202,5 +246,9 @@ pub mod error {
         UserAlreadyExists(Username),
         #[error("Invalid credentials")]
         BadCredentials,
+        #[error("Token has expired")]
+        ExpiredToken,
+        #[error("Invalid token")]
+        InvalidToken,
     }
 }

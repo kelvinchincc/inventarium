@@ -11,12 +11,13 @@ use poem_openapi::{
 use crate::{
     dto::{
         login_request_dto::LoginRequestDto, login_response_dto::LoginResponseType,
+        refresh_token_request_dto::RefreshTokenRequestDto,
         register_user_request_dto::RegisterUserRequestDto,
         register_user_response_dto::RegisterUserResponseType,
     },
     gurard::jwt_auth::JWTAuth,
     service::auth_service::{self, error::AuthServiceError},
-    types::{api_tags::ApiTags, app_state::AppState},
+    types::{api_tags::ApiTags, app_state::AppState, jwt_payload::JWTTokenType},
 };
 
 pub struct AuthController;
@@ -91,6 +92,26 @@ impl AuthController {
         }
 
         LoginResponseType::ok(result.unwrap())
+    }
+
+    #[oai(path = "/public/refresh", method = "post")]
+    pub async fn refresh_token(
+        &self,
+        data: Data<&AppState>,
+        body: Json<RefreshTokenRequestDto>,
+    ) -> PlainText<String> {
+        // Implement your refresh token logic here
+        let payload = auth_service::decode_jwt_token(
+            &body.refresh_token.as_str(),
+            JWTTokenType::Refresh,
+            &data.db,
+        )
+        .await;
+        let result = match payload {
+            Ok(p) => PlainText(format!("Token is valid: {:?}", p)),
+            Err(e) => PlainText(format!("Token is invalid: {}", e)),
+        };
+        result
     }
 
     /// This is protected endpoint

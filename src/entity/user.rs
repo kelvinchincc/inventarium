@@ -17,6 +17,7 @@ pub struct User {
     pub ref_token_seed: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub should_reset_password: bool,
 }
 
 impl Default for User {
@@ -30,12 +31,19 @@ impl Default for User {
             ref_token_seed: Default::default(),
             created_at: Utc::now(),
             updated_at: Utc::now(),
+            should_reset_password: false,
         }
     }
 }
 
 impl User {
-    pub fn new(id: String, username: String, email: String, password_hash: String) -> Self {
+    pub fn new(
+        id: String,
+        username: String,
+        email: String,
+        password_hash: String,
+        should_reset_password: bool,
+    ) -> Self {
         User {
             id,
             username,
@@ -45,6 +53,7 @@ impl User {
             ref_token_seed: Uuid::new_v4().to_string(),
             created_at: Utc::now(),
             updated_at: Utc::now(),
+            should_reset_password,
         }
     }
 }

@@ -29,12 +29,18 @@ use chrono::{DateTime, Utc};
 ///
 /// *Errors:*
 /// - `AuthServiceError::UserAlreadyExists`: Returned if a user with the same username already exists in the database.
-pub async fn create_user(db_pool: &DBPool, user: &RegisterUserRequestDto) -> Result<User> {
+pub async fn create_user(
+    db_pool: &DBPool,
+    user: &RegisterUserRequestDto,
+    should_reset_password: Option<bool>,
+) -> Result<User> {
+    let should_reset_password = should_reset_password.unwrap_or(false);
     let user = User::new(
         uuid::Uuid::now_v7().to_string(),
         user.username.clone(),
         user.email.clone(),
         hash_password(user.password.as_str())?,
+        should_reset_password,
     );
     log::debug!("Creating user: {:?}", user);
     let created = match user_repo::create_user(db_pool, &user).await {
@@ -176,10 +182,11 @@ pub async fn insert_new_admin_user_if_empty(db_pool: &DBPool) -> Result<()> {
         password: password.clone(),
         confirm_password: password,
     };
-    create_user(db_pool, &default_user).await?;
-    log::info!(
-        "Admin user created with username: 'admin' and password: 'P@$$w0rd'. Please change the password"
-    );
+    create_user(db_pool, &default_user, Some(true)).await?;
+    log::info!(concat!(
+        "Admin user created with username: 'admin' and password: 'P@$$w0rd'. Please change the password later ",
+        "in the console"
+    ));
 
     Ok(())
 }

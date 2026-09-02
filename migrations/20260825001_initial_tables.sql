@@ -7,5 +7,6 @@ CREATE TABLE IF NOT EXISTS "users" (
     "token_seed" TEXT NOT NULL,
     "ref_token_seed" TEXT NOT NULL,
     "created_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" DATETIME DEFAULT CURRENT_TIMESTAMP
+    "updated_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+    "should_reset_password" INTEGER DEFAULT 0
 );

@@ -49,7 +49,7 @@ impl AuthController {
             ));
         }
 
-        let user = auth_service::create_user(&data.db, &body).await;
+        let user = auth_service::create_user(&data.db, &body, None).await;
         if let Err(e) = user {
             return match e.downcast_ref::<AuthServiceError>() {
                 Some(AuthServiceError::UserAlreadyExists(username)) => {

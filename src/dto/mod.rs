@@ -5,5 +5,6 @@
 pub mod login_request_dto;
 pub mod login_response_dto;
 pub mod refresh_token_request_dto;
+pub mod refresh_token_response_dto;
 pub mod register_user_request_dto;
 pub mod register_user_response_dto;

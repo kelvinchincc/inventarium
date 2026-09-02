@@ -10,8 +10,10 @@ use poem_openapi::{
 
 use crate::{
     dto::{
-        login_request_dto::LoginRequestDto, login_response_dto::LoginResponseType,
+        login_request_dto::LoginRequestDto,
+        login_response_dto::LoginResponseType,
         refresh_token_request_dto::RefreshTokenRequestDto,
+        refresh_token_response_dto::{RefreshTokenResponseDto, RefreshTokenResponseDtoType},
         register_user_request_dto::RegisterUserRequestDto,
         register_user_response_dto::RegisterUserResponseType,
     },
@@ -99,7 +101,7 @@ impl AuthController {
         &self,
         data: Data<&AppState>,
         body: Json<RefreshTokenRequestDto>,
-    ) -> PlainText<String> {
+    ) -> RefreshTokenResponseDtoType {
         // Implement your refresh token logic here
         let payload = auth_service::decode_jwt_token(
             &body.refresh_token.as_str(),
@@ -107,11 +109,11 @@ impl AuthController {
             &data.db,
         )
         .await;
-        let result = match payload {
-            Ok(p) => PlainText(format!("Token is valid: {:?}", p)),
-            Err(e) => PlainText(format!("Token is invalid: {}", e)),
-        };
-        result
+
+        match payload {
+            Ok(_) => RefreshTokenResponseDtoType::ok(RefreshTokenResponseDto::default()),
+            Err(e) => RefreshTokenResponseDtoType::from(e),
+        }
     }
 
     /// This is protected endpoint

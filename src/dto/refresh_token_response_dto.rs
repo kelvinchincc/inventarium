@@ -36,6 +36,12 @@ impl Default for RefreshTokenResponseDtoType {
     }
 }
 
+impl From<RefreshTokenResponseDto> for RefreshTokenResponseDtoType {
+    fn from(dto: RefreshTokenResponseDto) -> Self {
+        RefreshTokenResponseDtoType::ok(dto)
+    }
+}
+
 impl From<anyhow::Error> for RefreshTokenResponseDtoType {
     fn from(error: anyhow::Error) -> Self {
         match error.downcast_ref() {

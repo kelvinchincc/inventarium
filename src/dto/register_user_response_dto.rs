@@ -5,7 +5,11 @@
 use poem_openapi::{ApiResponse, Object, payload::Json};
 use serde::{Deserialize, Serialize};
 
-use crate::types::base_response::{BaseResponse, ErrorResponse};
+use crate::{
+    entity::user::User,
+    service::auth_service::error::AuthServiceError,
+    types::base_response::{BaseResponse, ErrorResponse},
+};
 
 #[derive(Debug, Serialize, Deserialize, Object)]
 pub struct RegisterUserResponseDto {
@@ -55,5 +59,34 @@ impl RegisterUserResponseType {
     pub fn internal_server_err(msg: Option<String>) -> Self {
         let msg = msg.unwrap_or_else(|| "Internal server error".to_string());
         Self::InternalServerError(Json(ErrorResponse::from(msg)))
+    }
+}
+
+impl Default for RegisterUserResponseType {
+    fn default() -> Self {
+        Self::internal_server_err(None)
+    }
+}
+
+impl From<User> for RegisterUserResponseType {
+    fn from(dto: User) -> Self {
+        Self::ok(dto.username)
+    }
+}
+
+impl From<anyhow::Error> for RegisterUserResponseType {
+    fn from(error: anyhow::Error) -> Self {
+        match error.downcast_ref::<AuthServiceError>() {
+            Some(AuthServiceError::UserAlreadyExists(username)) => {
+                RegisterUserResponseType::conflict(Some(format!(
+                    "User with username '{}' already exists",
+                    username
+                )))
+            }
+            _ => {
+                log::error!("Error creating user: {}", error);
+                RegisterUserResponseType::internal_server_err(None)
+            }
+        }
     }
 }

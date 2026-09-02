@@ -18,7 +18,7 @@ use crate::{
         register_user_response_dto::RegisterUserResponseType,
     },
     gurard::jwt_auth::JWTAuth,
-    service::auth_service::{self, error::AuthServiceError},
+    service::auth_service::{self},
     types::{api_tags::ApiTags, app_state::AppState, jwt_payload::JWTTokenType},
 };
 
@@ -53,22 +53,11 @@ impl AuthController {
         }
 
         let user = auth_service::create_user(&data.db, &body, None).await;
-        if let Err(e) = user {
-            return match e.downcast_ref::<AuthServiceError>() {
-                Some(AuthServiceError::UserAlreadyExists(username)) => {
-                    RegisterUserResponseType::conflict(Some(format!(
-                        "User with username '{}' already exists",
-                        username
-                    )))
-                }
-                _ => {
-                    log::error!("Error creating user: {}", e);
-                    RegisterUserResponseType::internal_server_err(None)
-                }
-            };
-        }
 
-        RegisterUserResponseType::ok(user.unwrap().username)
+        match user {
+            Ok(u) => u.into(),
+            Err(e) => e.into(),
+        }
     }
 
     #[oai(path = "/public/login", method = "post")]
@@ -79,21 +68,10 @@ impl AuthController {
     ) -> LoginResponseType {
         let result = auth_service::login(&app_state.db, &body.0).await;
 
-        if let Err(e) = result {
-            match e.downcast_ref::<AuthServiceError>() {
-                Some(AuthServiceError::BadCredentials) => {
-                    return LoginResponseType::unauthorized(Some(
-                        "Invalid username or password".into(),
-                    ));
-                }
-                _ => {
-                    log::error!("Error logging in user: {}", e);
-                    return LoginResponseType::internal_server_error(None);
-                }
-            }
+        match result {
+            Ok(r) => r.into(),
+            Err(e) => e.into(),
         }
-
-        LoginResponseType::ok(result.unwrap())
     }
 
     #[oai(path = "/public/refresh", method = "post")]
@@ -111,8 +89,8 @@ impl AuthController {
         .await;
 
         match payload {
-            Ok(_) => RefreshTokenResponseDtoType::ok(RefreshTokenResponseDto::default()),
-            Err(e) => RefreshTokenResponseDtoType::from(e),
+            Ok(_) => RefreshTokenResponseDto::default().into(),
+            Err(e) => e.into(),
         }
     }
 

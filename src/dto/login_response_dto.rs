@@ -6,7 +6,10 @@ use chrono::{DateTime, Utc};
 use poem_openapi::{ApiResponse, Object, payload::Json};
 use serde::{Deserialize, Serialize};
 
-use crate::types::base_response::{BaseResponse, ErrorResponse};
+use crate::{
+    service::auth_service::error::AuthServiceError,
+    types::base_response::{BaseResponse, ErrorResponse},
+};
 
 #[derive(Debug, Serialize, Deserialize, Object, Clone)]
 pub struct LoginResponseDto {
@@ -43,7 +46,7 @@ pub enum LoginResponseType {
     #[oai(status = 401)]
     Unauthorized(Json<ErrorResponse>),
     #[oai(status = 500)]
-    InternalServerError(Json<ErrorResponse>),
+    InternalServerError,
 }
 
 impl LoginResponseType {
@@ -55,9 +58,35 @@ impl LoginResponseType {
         LoginResponseType::Unauthorized(Json(message.unwrap_or("Unauthorized".into()).into()))
     }
 
-    pub fn internal_server_error(message: Option<String>) -> Self {
-        LoginResponseType::InternalServerError(Json(
-            message.unwrap_or("Internal Server Error".into()).into(),
-        ))
+    pub fn internal_server_error() -> Self {
+        LoginResponseType::InternalServerError
+    }
+}
+
+impl Default for LoginResponseType {
+    fn default() -> Self {
+        LoginResponseType::internal_server_error()
+    }
+}
+
+impl From<LoginResponseDto> for LoginResponseType {
+    fn from(response: LoginResponseDto) -> Self {
+        LoginResponseType::ok(response)
+    }
+}
+
+impl From<anyhow::Error> for LoginResponseType {
+    fn from(error: anyhow::Error) -> Self {
+        match error.downcast_ref::<AuthServiceError>() {
+            Some(AuthServiceError::BadCredentials) => {
+                return LoginResponseType::unauthorized(Some(
+                    "Invalid username or password".into(),
+                ));
+            }
+            _ => {
+                log::error!("Internal server error: {}", error);
+                Default::default()
+            }
+        }
     }
 }

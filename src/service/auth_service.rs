@@ -85,7 +85,8 @@ pub async fn login(db: &DBPool, login_dto: &LoginRequestDto) -> Result<LoginResp
                 user.username.clone(),
                 auth_token_exp,
                 refresh_token_exp,
-                user.id.clone(),
+                user.token_seed.clone(),
+                user.ref_token_seed.clone(),
             )?;
             let mut response = LoginResponseDto::default();
             response.token = tokens.auth;
@@ -95,6 +96,56 @@ pub async fn login(db: &DBPool, login_dto: &LoginRequestDto) -> Result<LoginResp
         }
         Err(_) => Err(AuthServiceError::BadCredentials.into()),
     }
+}
+
+/// Refreshes a user's session by validating the provided refresh token and generating new authentication and refresh
+/// tokens.
+///
+/// *Parameters:*
+/// - `db`: A reference to the database pool.
+/// - `ref_token`: A string slice representing the refresh token to be validated and used for generating new tokens.
+///
+/// *Returns:*
+/// - `Result<LoginResponseDto>`: Returns a `LoginResponseDto` containing the new authentication and refresh tokens if
+///   successful, or an error if the refresh token is invalid or expired.
+///
+/// *Errors:*
+/// - `AuthServiceError::InvalidToken`: Returned if the provided refresh token is invalid or does not match the user's
+///   current refresh token seed.
+/// - `AuthServiceError::ExpiredToken`: Returned if the provided refresh token has expired.
+pub async fn refresh_session(db: &DBPool, ref_token: &str) -> Result<LoginResponseDto> {
+    let payload = decode_jwt_token(ref_token, JWTTokenType::Refresh, db)
+        .await
+        .map_err(|_| AuthServiceError::InvalidToken)?;
+    let user = user_repo::get_user_by_username(db, &payload.username)
+        .await?
+        .ok_or(AuthServiceError::InvalidToken)?;
+
+    let now = Utc::now();
+    let ref_token_exp = payload.exp;
+    if ref_token_exp < now.timestamp() {
+        return Err(AuthServiceError::ExpiredToken.into());
+    }
+
+    let token_exp = now + chrono::Duration::hours(1);
+    let refresh_token_exp = now + chrono::Duration::days(14);
+    let new_token = generate_jwt_token(
+        user.username.clone(),
+        token_exp,
+        refresh_token_exp,
+        user.token_seed,
+        user.ref_token_seed,
+    )
+    .map_err(|_| AuthServiceError::BadCredentials)?;
+    let login_response = LoginResponseDto {
+        username: user.username,
+        token: new_token.auth,
+        refresh_token: new_token.refresh,
+        expire_at: token_exp.timestamp(),
+        refresh_expire_at: refresh_token_exp.timestamp(),
+    };
+
+    Ok(login_response)
 }
 
 /// Hashes a password using the Argon2id algorithm.
@@ -145,6 +196,7 @@ fn verify_password(password: &str, password_hash: &str) -> Result<()> {
 /// - `exp`: A `DateTime` representing the expiration time of the token.
 /// - `ref_exp`: A `DateTime` representing the expiration time of the refresh token.
 /// - `seed`: A string representing the seed to be included in the token payload.
+/// - `ref_seed`: A string representing the seed to be included in the refresh token payload.
 ///
 /// *Returns:*
 /// - `Result<JWTTokenPair>`: Returns a `JWTTokenPair` if the token generation is successful, or an error if it fails.
@@ -156,12 +208,13 @@ pub fn generate_jwt_token(
     exp: DateTime<Utc>,
     ref_exp: DateTime<Utc>,
     seed: String,
+    ref_seed: String,
 ) -> Result<JWTTokenPair> {
     use jsonwebtoken::*;
     let key = EncodingKey::from_secret(JWT_SECRET);
     let ref_key = EncodingKey::from_secret(JWT_REFRESH_SECRET);
-    let payload = JWTPayload::new(username.clone(), exp, seed.clone());
-    let ref_payload = JWTPayload::new(username, ref_exp, seed);
+    let payload = JWTPayload::new(username.clone(), exp, seed);
+    let ref_payload = JWTPayload::new(username, ref_exp, ref_seed);
     let jwt_tokens = JWTTokenPair {
         auth: encode(&Header::default(), &payload, &key)?,
         refresh: encode(&Header::default(), &ref_payload, &ref_key)?,
@@ -187,6 +240,7 @@ pub async fn decode_jwt_token(
     let exp = token_data.claims.exp;
 
     if exp < now {
+        log::debug!("Token expired: exp={}, now={}", exp, now);
         return Err(AuthServiceError::ExpiredToken.into());
     }
 
@@ -204,6 +258,11 @@ pub async fn decode_jwt_token(
     };
 
     if token_data.claims.seed != current_user_seed {
+        log::debug!(
+            "Invalid token seed: expected={}, found={}",
+            current_user_seed,
+            token_data.claims.seed
+        );
         return Err(AuthServiceError::InvalidToken.into());
     }
 

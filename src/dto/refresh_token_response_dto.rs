@@ -5,7 +5,9 @@
 use poem_openapi::{ApiResponse, payload::Json};
 
 use crate::{
-    dto::login_response_dto::LoginResponseDto, service::auth_service::error::AuthServiceError,
+    dto::login_response_dto::LoginResponseDto,
+    service::auth_service::error::AuthServiceError,
+    types::base_response::{BaseResponse, ErrorResponse},
 };
 
 pub type RefreshTokenResponseDto = LoginResponseDto;
@@ -13,20 +15,22 @@ pub type RefreshTokenResponseDto = LoginResponseDto;
 #[derive(ApiResponse, Debug)]
 pub enum RefreshTokenResponseDtoType {
     #[oai(status = 200)]
-    Ok(Json<RefreshTokenResponseDto>),
+    Ok(Json<BaseResponse<RefreshTokenResponseDto>>),
     #[oai(status = 401)]
-    InvalidRefreshToken,
+    InvalidRefreshToken(Json<ErrorResponse>),
     #[oai(status = 500)]
     InternalServerError,
 }
 
 impl RefreshTokenResponseDtoType {
     pub fn ok(dto: RefreshTokenResponseDto) -> Self {
-        RefreshTokenResponseDtoType::Ok(Json(dto))
+        RefreshTokenResponseDtoType::Ok(Json(BaseResponse::from(dto)))
     }
 
     pub fn invalid_refresh_token() -> Self {
-        RefreshTokenResponseDtoType::InvalidRefreshToken
+        RefreshTokenResponseDtoType::InvalidRefreshToken(Json(ErrorResponse::from(
+            "Invalid refresh token".to_string(),
+        )))
     }
 }
 

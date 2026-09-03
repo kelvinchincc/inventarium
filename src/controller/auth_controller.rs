@@ -26,12 +26,6 @@ pub struct AuthController;
 
 #[OpenApi(tag = "ApiTags::AuthController")]
 impl AuthController {
-    /// Hello World!
-    #[oai(path = "/public/hello", method = "get")]
-    pub async fn hello(&self) -> PlainText<&'static str> {
-        PlainText("Hello, World!")
-    }
-
     /// Register user
     #[oai(path = "/public/register", method = "post")]
     pub async fn register_user(
@@ -74,21 +68,16 @@ impl AuthController {
         }
     }
 
+    /// Refresh token endpoint
     #[oai(path = "/public/refresh", method = "post")]
     pub async fn refresh_token(
         &self,
         data: Data<&AppState>,
         body: Json<RefreshTokenRequestDto>,
     ) -> RefreshTokenResponseDtoType {
-        // Implement your refresh token logic here
-        let payload = auth_service::decode_jwt_token(
-            &body.refresh_token.as_str(),
-            JWTTokenType::Refresh,
-            &data.db,
-        )
-        .await;
+        let result = auth_service::refresh_session(&data.db, &body.refresh_token).await;
 
-        match payload {
+        match result {
             Ok(_) => RefreshTokenResponseDto::default().into(),
             Err(e) => e.into(),
         }

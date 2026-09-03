@@ -38,14 +38,14 @@ impl Default for User {
 
 impl User {
     pub fn new(
-        id: String,
+        id: Option<String>,
         username: String,
         email: String,
         password_hash: String,
         should_reset_password: bool,
     ) -> Self {
         User {
-            id,
+            id: id.unwrap_or_else(|| Uuid::now_v7().to_string()),
             username,
             email,
             password_hash,

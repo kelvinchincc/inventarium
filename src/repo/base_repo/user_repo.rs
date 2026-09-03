@@ -3,7 +3,6 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use anyhow::Result;
-use std::borrow::Cow;
 
 use crate::{
     entity::user::User,
@@ -11,11 +10,11 @@ use crate::{
     types::db_pool::DBPool::{self, SQLITE},
 };
 
-pub async fn create_user<'a>(pool: &DBPool, user: &'a User) -> Result<Cow<'a, User>> {
+pub async fn create_user(pool: &DBPool, user: &User) -> Result<()> {
     match pool {
         SQLITE(pool) => {
-            let result = sqlite_repo::user_repo::create_user(pool, user).await?;
-            return Ok(result);
+            sqlite_repo::user_repo::create_user(pool, user).await?;
+            return Ok(());
         }
     }
 }

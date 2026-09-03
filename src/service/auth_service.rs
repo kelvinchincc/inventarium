@@ -39,14 +39,14 @@ pub async fn create_user(
 ) -> Result<User> {
     let should_reset_password = should_reset_password.unwrap_or(false);
     let user = User::new(
-        uuid::Uuid::now_v7().to_string(),
+        None,
         user.username.clone(),
         user.email.clone(),
         hash_password(user.password.as_str())?,
         should_reset_password,
     );
     log::debug!("Creating user: {:?}", user);
-    let created = match user_repo::create_user(db_pool, &user).await {
+    match user_repo::create_user(db_pool, &user).await {
         Ok(user) => user,
         Err(e) => match e.downcast_ref::<SQLiteRepoError>() {
             Some(SQLiteRepoError::UserExists) => {
@@ -55,7 +55,7 @@ pub async fn create_user(
             None => return Err(e),
         },
     };
-    Ok(created.into_owned())
+    Ok(user)
 }
 
 /// Logs in a user by verifying their credentials.

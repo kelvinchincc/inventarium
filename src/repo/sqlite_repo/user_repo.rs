@@ -2,14 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use std::borrow::Cow;
-
 use sqlx::sqlite;
 
 use crate::{entity::user::User, repo::sqlite_repo::error::SQLiteRepoError};
 use anyhow::Result;
 
-pub async fn create_user<'a>(pool: &sqlite::SqlitePool, user: &'a User) -> Result<Cow<'a, User>> {
+pub async fn create_user(pool: &sqlite::SqlitePool, user: &User) -> Result<()> {
     let existing_user =
         sqlx::query_as::<_, User>("SELECT * FROM users WHERE username = ? OR email = ?")
             .bind(&user.username)
@@ -49,7 +47,7 @@ pub async fn create_user<'a>(pool: &sqlite::SqlitePool, user: &'a User) -> Resul
     .execute(pool)
     .await?;
 
-    Ok(Cow::Borrowed(user))
+    Ok(())
 }
 
 pub async fn get_user_by_username(

@@ -5,6 +5,8 @@
 use crate::dto::login_request_dto::LoginRequestDto;
 use crate::dto::login_response_dto::LoginResponseDto;
 use crate::service::auth_service::error::AuthServiceError;
+use crate::types::app_state::{self, AppState};
+use crate::types::env_variables::EnvVariables;
 use crate::types::jwt_payload::{JWTPayload, JWTTokenPair, JWTTokenType};
 use crate::{
     dto::register_user_request_dto::RegisterUserRequestDto,
@@ -17,9 +19,6 @@ use argon2::password_hash::SaltString;
 use argon2::password_hash::rand_core::OsRng;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use chrono::{DateTime, Utc};
-
-const JWT_SECRET: &[u8] = b"hello";
-const JWT_REFRESH_SECRET: &[u8] = b"secret";
 
 /// Creates a new user in the database.
 ///
@@ -69,8 +68,8 @@ pub async fn create_user(
 ///
 /// *Errors:*
 /// - `AuthServiceError::BadCredentials`: Returned if the username does not exist or the password is incorrect.
-pub async fn login(db: &DBPool, login_dto: &LoginRequestDto) -> Result<LoginResponseDto> {
-    let user = user_repo::get_user_by_username(&db, login_dto.username.as_str()).await?;
+pub async fn login(app_state: &AppState, login_dto: &LoginRequestDto) -> Result<LoginResponseDto> {
+    let user = user_repo::get_user_by_username(&app_state.db, login_dto.username.as_str()).await?;
     if user.is_none() {
         return Err(AuthServiceError::BadCredentials.into());
     }
@@ -82,6 +81,7 @@ pub async fn login(db: &DBPool, login_dto: &LoginRequestDto) -> Result<LoginResp
             let auth_token_exp = Utc::now() + chrono::Duration::hours(1);
             let refresh_token_exp = Utc::now() + chrono::Duration::days(14);
             let tokens = generate_jwt_token(
+                &app_state.config,
                 user.username.clone(),
                 auth_token_exp,
                 refresh_token_exp,
@@ -113,11 +113,16 @@ pub async fn login(db: &DBPool, login_dto: &LoginRequestDto) -> Result<LoginResp
 /// - `AuthServiceError::InvalidToken`: Returned if the provided refresh token is invalid or does not match the user's
 ///   current refresh token seed.
 /// - `AuthServiceError::ExpiredToken`: Returned if the provided refresh token has expired.
-pub async fn refresh_session(db: &DBPool, ref_token: &str) -> Result<LoginResponseDto> {
-    let payload = decode_jwt_token(ref_token, JWTTokenType::Refresh, db)
-        .await
-        .map_err(|_| AuthServiceError::InvalidToken)?;
-    let user = user_repo::get_user_by_username(db, &payload.username)
+pub async fn refresh_session(app_state: &AppState, ref_token: &str) -> Result<LoginResponseDto> {
+    let payload = decode_jwt_token(
+        &app_state.config,
+        ref_token,
+        JWTTokenType::Refresh,
+        &app_state.db,
+    )
+    .await
+    .map_err(|_| AuthServiceError::InvalidToken)?;
+    let user = user_repo::get_user_by_username(&app_state.db, &payload.username)
         .await?
         .ok_or(AuthServiceError::InvalidToken)?;
 
@@ -130,6 +135,7 @@ pub async fn refresh_session(db: &DBPool, ref_token: &str) -> Result<LoginRespon
     let token_exp = now + chrono::Duration::hours(1);
     let refresh_token_exp = now + chrono::Duration::days(14);
     let new_token = generate_jwt_token(
+        &app_state.config,
         user.username.clone(),
         token_exp,
         refresh_token_exp,
@@ -204,6 +210,7 @@ fn verify_password(password: &str, password_hash: &str) -> Result<()> {
 /// *Errors:*
 /// - `anyhow::Error`: Returns an error if the token generation fails.
 pub fn generate_jwt_token(
+    config: &EnvVariables,
     username: String,
     exp: DateTime<Utc>,
     ref_exp: DateTime<Utc>,
@@ -211,8 +218,8 @@ pub fn generate_jwt_token(
     ref_seed: String,
 ) -> Result<JWTTokenPair> {
     use jsonwebtoken::*;
-    let key = EncodingKey::from_secret(JWT_SECRET);
-    let ref_key = EncodingKey::from_secret(JWT_REFRESH_SECRET);
+    let key = EncodingKey::from_secret(config.get_jwt_secret());
+    let ref_key = EncodingKey::from_secret(config.get_jwt_ref_secret());
     let payload = JWTPayload::new(username.clone(), exp, seed);
     let ref_payload = JWTPayload::new(username, ref_exp, ref_seed);
     let jwt_tokens = JWTTokenPair {
@@ -223,16 +230,17 @@ pub fn generate_jwt_token(
 }
 
 pub async fn decode_jwt_token(
+    config: &EnvVariables,
     token: &str,
     token_type: JWTTokenType,
     db_pool: &DBPool,
 ) -> Result<JWTPayload> {
     use jsonwebtoken::*;
     let secret = match token_type {
-        JWTTokenType::Auth => JWT_SECRET,
-        JWTTokenType::Refresh => JWT_REFRESH_SECRET,
+        JWTTokenType::Auth => config.get_jwt_secret().to_vec(),
+        JWTTokenType::Refresh => config.get_jwt_ref_secret().to_vec(),
     };
-    let key = DecodingKey::from_secret(secret);
+    let key = DecodingKey::from_secret(&secret);
     let validation = Validation::default();
     let token_data = decode::<JWTPayload>(token, &key, &validation)?;
 

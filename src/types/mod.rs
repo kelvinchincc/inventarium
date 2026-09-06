@@ -6,4 +6,5 @@ pub mod api_tags;
 pub mod app_state;
 pub mod base_response;
 pub mod db_pool;
+pub mod env_variables;
 pub mod jwt_payload;

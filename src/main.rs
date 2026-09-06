@@ -11,7 +11,7 @@ use poem_openapi::OpenApiService;
 use crate::{
     controller::auth_controller,
     service::auth_service,
-    types::{app_state::AppState, db_pool::DBPool},
+    types::{app_state::AppState, db_pool::DBPool, env_variables::EnvVariables},
 };
 
 mod controller;
@@ -24,10 +24,12 @@ mod types;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    dotenv::dotenv()?;
     init_log();
 
     log::info!("Initializing configs...");
-    let app_state = AppState::new(setup_db().await?);
+    let config = EnvVariables::parse_env_configs()?;
+    let app_state = AppState::new(setup_db(&config).await?, config);
     auth_service::insert_new_admin_user_if_empty(&app_state.db).await?;
 
     let api_service =
@@ -55,18 +57,25 @@ fn init_log() {
     tracing_subscriber::fmt::init();
 }
 
-async fn setup_db() -> Result<DBPool> {
+async fn setup_db(config: &EnvVariables) -> Result<DBPool> {
     log::info!("Connecting database...");
-    Ok(setup_sqlite().await?)
+    Ok(setup_sqlite(config).await?)
 }
 
-async fn setup_sqlite() -> Result<DBPool> {
+async fn setup_sqlite(config: &EnvVariables) -> Result<DBPool> {
     use sqlx::sqlite::*;
 
     log::info!("Connecting sqlite database...");
 
     let options = SqliteConnectOptions::from_str("./inventarium.db")?.create_if_missing(true);
+
+    // Connect to the database and enable wal mode, then, run the migrations.
     let pool = SqlitePool::connect_with(options).await?;
+    if config.get_sqlite_is_wal_mode() {
+        sqlx::query("PRAGMA journal_mode = WAL;")
+            .execute(&pool)
+            .await?;
+    }
     migrate_sqlite(&pool).await?;
     Ok(DBPool::SQLITE(pool))
 }

@@ -19,7 +19,7 @@ use crate::{
     },
     gurard::jwt_auth::JWTAuth,
     service::auth_service::{self},
-    types::{api_tags::ApiTags, app_state::AppState, jwt_payload::JWTTokenType},
+    types::{api_tags::ApiTags, app_state::AppState},
 };
 
 pub struct AuthController;
@@ -60,7 +60,7 @@ impl AuthController {
         app_state: Data<&AppState>,
         body: Json<LoginRequestDto>,
     ) -> LoginResponseType {
-        let result = auth_service::login(&app_state.db, &body.0).await;
+        let result = auth_service::login(&app_state, &body.0).await;
 
         match result {
             Ok(r) => r.into(),
@@ -75,7 +75,7 @@ impl AuthController {
         data: Data<&AppState>,
         body: Json<RefreshTokenRequestDto>,
     ) -> RefreshTokenResponseDtoType {
-        let result = auth_service::refresh_session(&data.db, &body.refresh_token).await;
+        let result = auth_service::refresh_session(&data, &body.refresh_token).await;
 
         match result {
             Ok(_) => RefreshTokenResponseDto::default().into(),

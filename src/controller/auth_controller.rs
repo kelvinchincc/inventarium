@@ -27,7 +27,7 @@ pub struct AuthController;
 #[OpenApi(tag = "ApiTags::AuthController")]
 impl AuthController {
     /// Register user
-    #[oai(path = "/public/register", method = "post")]
+    #[oai(path = "/secured/register", method = "post")]
     pub async fn register_user(
         &self,
         _auth: JWTAuth,

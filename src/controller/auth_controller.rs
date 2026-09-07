@@ -78,7 +78,7 @@ impl AuthController {
         let result = auth_service::refresh_session(&data, &body.refresh_token).await;
 
         match result {
-            Ok(_) => RefreshTokenResponseDto::default().into(),
+            Ok(dto) => RefreshTokenResponseDtoType::ok(dto),
             Err(e) => e.into(),
         }
     }
